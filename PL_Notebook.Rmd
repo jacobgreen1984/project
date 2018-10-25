@@ -1,0 +1,326 @@
+---
+title   : "보험계약대출예측모델 노트북"
+version : 0.1
+author  : 2e Consulting
+---
+
+#00. Overview
+ 보험계약대출이 가능한 계약을 대상으로 보험계약대출 예측분석, 운영수행.
+ 
+ [학습]
+  1) 데이터마트 구축
+  2) 보험계약대출예측모델 생성
+  
+ [운영]
+  1) 운영 데이터 생성
+  2) 보험계약대출 예측 수행
+  3) 최종결과 저장
+ 
+ [운영평가]
+  1) 운영평가 데이터 생성(Y포함)
+  2) 보험계약대출 예측 수행 및 평가
+  3) 최종결과 저장
+  
+ 01. 환경설정
+ 보험계약대출예측 모델에서 사용하는 환경(환경, 라이브러리, 경로, 유저함수) 정보를 미리 불러온다.
+  1) 경로 설정 : 기본적으로 보험계약대출예측모델의 코드는 R_script의 MDEL_PL_FRCST 폴더를 사용한다.
+  2) 환경 설정 : 공통환경과 보험계약대출예측모델에서만 사용하는 환경을 PL_CONF.R 파일을 통해 불러온다.
+  
+ 02. 데이터마트 구축
+ Spark를 이용해 기계학습에 사용할 데이터마트를 HDFS에 구축한다.
+  1) 변수 설정 : 데이터마트 구성기간을 설정한다.
+  2) SparkR세션 열기 : home 위치를 워킹디렉토리로 지정하고 Spark Master에 R을 연결한다.
+  3) WRK : 파일 생성 전, 무거운 전처리 작업이 필요해 템프성 테이블을 먼저 생성한다.
+  4) DM : WRK에 생성된 템프테이블을 DM 보관 장소로 이관시킨다.
+  5) SparkR세션 종료 : SparkR 세션을 종료하고 메모리를 초기화 시켜준다.
+  
+ 03. 보험계약대출예측모델 학습
+ H2O를 이용해 보험계약대출예측모델을 생성하고 검증한다.
+  1) 데이터셋 생성 : 분석 데이터셋 기간을 설정하고, 해당 데이터셋을 생성한다.
+  2) 파생변수 생성 : 추가 파생변수를 생성한다.
+  3) H2O세션 열기 : H2O세션을 연결한다.
+  4) 모델학습 옵션 설정 : 빠른학습(Fast_mode), 최대 모형, 최대 학습 시간을 설정한다.
+  5) 기초모델 생성 : RF, GBM, DL, XGB, AML 알고리즘을 사용하여 기초모델을 생성한다.
+  6) 기초모델 백업 : 기초모델을 백업한다.
+  7) 앙상블모델 생성 : 기초모델을 기반으로 3-layer stacking 모델을 생성한다.
+  8) 베스트모델 저장 : 가장 성능이 좋은 예측모델을 결정/저장한다.
+  9) 리포트 생성 : 베스트모델을 사용해서 리포트를 생성한다.
+  10) H2O세션 종료 : H2O세션을 종료하고 메모리를 초기화 시켜준다.
+  
+ 04. 대출예측 운영
+ 데이터 생성 파트 : 지정된 시점에 batch로 작업이 수행되어 기계학습에 사용할 R 데이터를 생성한다.
+  1) 배치 변수 받기 : shell에서 input parameter를 읽어 args에 담아둔다.
+  2) 변수 설정 : shell의 parameter에서 읽어온 변수를 기준으로 데이터 생성기간을 설정한다.
+  3) SparkR세션 열기 : home 위치를 워킹디렉토리로 지정하고 Spark Master에 R을 연결한다.
+  4) WRK : 파일 생성 전, 무거운 전처리 작업이 필요해 템프성 테이블을 먼저 생성한다.
+  5) DM : WRK에 생성된 템프테이블을 DM 보관 장소로 이관시킨다.
+  
+ 머신러닝 운영 파트 : 학습 된 베스트모델을 호출하여 예측값과 리포트를 생성한다. 
+  6) 데이터셋 생성 : 분석 데이터셋 기간을 설정하고, 해당 데이터셋을 생성한다.
+  7) 파생변수 생성 : 추가 파생변수를 생성한다.
+  8) H2O세션 열기 : H2O세션을 연결한다.
+  9) 베스트모델 예측 : 베스트모델을 호출하여 예측값을 생성한다.
+  10) 리포트 생성 : 베스트모델의 리포트를 생성한다.
+  11) H2O세션 종료 : H2O세션을 종료하고 메모리를 초기화 시켜준다.
+  
+ 05. 모델 운영 평가
+ 학습 된 베스트모델을 호출하여 예측값과 리포트를 생성한다. 
+  1) 데이터셋 생성 : 분석 데이터셋 기간을 설정하고, 해당 데이터셋을 생성한다.
+  2) 파생변수 생성 : 추가 파생변수를 생성한다.
+  3) H2O세션 열기 : H2O세션을 연결한다.
+  4) 베스트모델 예측 : 베스트모델을 호출하여 예측값을 생성한다.
+  5) 리포트 생성 : 베스트모델의 리포트를 생성한다.
+  6) H2O세션 종료 : H2O세션을 종료하고 메모리를 초기화 시켜준다.
+  
+ 06. 메모리 초기화
+ 분석작업이 끝나면 사용된 모든 오브젝트들을 지우고 메모리를 초기화 시켜준다.
+ 
+ 
+# 01. 환경설정
+```{r}
+scriptPath <- "/data/rpjt/R_script/MDEL_PL_FRCST"                  # Set script path             
+source(file.path(scriptPath, "PL_CONF.R"))                         # Load Configures
+```
+
+# 02. 데이터마트 구축
+```{r}
+# 메모리 초기화 
+rm(list = ls())                                                         # Remove all object
+gc(reset = T)                                                           # Release memory
+
+# Configure 호출 
+scriptPath <- "/data/rpjt/R_script/MDEL_PL_FRCST"                       # Set script path             
+source(file.path(scriptPath, "PL_CONF.R"))                              # Load Configures
+
+# 권한부여 설정 
+chmod_777 <- TRUE                                                       # 생성 파일에 권한 777부여 여부 설정 
+
+# 기간 설정 
+looping_ar <- makeDateArray('201705', 24)                               # 기준년월(M시점, 예측 타겟은 M+1, M_2 시점)
+
+# SparkR 세션 열기
+setwd("~")                                                              # set working directory(avoid the hive metastore_db problem) 
+sparkR.session(master = SPARK_Path)                                     # Spark Standalone Mode
+
+# 계약 템프테이블
+source(file.path(DM_PL_Path,"110_DM_PL_PLC_TT.R"))                      # WRK 템프테이블 생성(1)
+
+# 당사자 템프테이블
+source(file.path(DM_PL_Path,"120_DM_PL_PTY_TT.R"))                      # WRK 템프테이블 생성(2)
+
+# DM 마트 이관
+source(file.path(DM_PL_Path,"210_DM_PL_MD.R"))                          # DM 마트 이관
+
+# SparkR 세션 끊기 
+sparkR.session.stop()                                                   # Disconnect SparkR
+
+# 메모리 초기화 
+rm(list=ls())                                                           # Remove all object
+gc(reset=T)                                                             # Release memory
+```
+
+# 03. 대출예측모델 학습
+```{r}
+# 메모리 초기화 
+rm(list = ls())                                                         # Remove all object
+gc(reset = T)                                                           # Release memory
+
+# Configure 호출 
+scriptPath <- "/data/rpjt/R_script/MDEL_PL_FRCST"                       # Set script path             
+source(file.path(scriptPath, "PL_CONF.R"))                              # Load Configures
+
+# sparklyR 세션 열기
+setwd("~")                                                              # set working directory(avoid the hive metastore_db problem) 
+sparklyR.conn("cluster",24)                                             # Cluster Mode
+
+# 기간 설정 
+looping_ar <- makeDateArray('201705', 24)                               # 기준년월(M시점, 예측 타겟은 M+1, M_2 시점)
+
+# 데이터셋 생성 
+source(file.path(ML_PL_Path,"110_ML_PL_DT.R"))                          # 계약 및 고객 데이터를 결합하여 분석 데이터셋 생성 
+
+# sparklyR 세션 끊기
+sparklyR.disconn(sc)                                                    # Disconnect sparklyR
+
+# 파생변수 생성
+doRound = T                                                             # 연속형 변수 라운드 처리 옵션 
+doSample = 0.1                                                          # 전체 데이터셋에서 샘플링 진행
+source(file.path(ML_PL_Path,"120_ML_PL_FE.R"))                          # R data.table을 사용하여 통계 및 비율 파생변수 생성 
+
+# H2O세션 열기
+library(h2o)                                                            # H2O 라이브러리 호출
+h2o.init(nthreads=24)                                                   # H2O 연결(local)
+
+# 모델학습 옵션 설정
+RF_DEFAULT_TRAIN  = F                                                   # 빠른학습 설정
+GBM_DEFAULT_TRAIN = F                                                   # 빠른학습 설정
+DL_DEFAULT_TRAIN  = F                                                   # 빠른학습 설정
+XGB_DEFAULT_TRAIN = F                                                   # 빠른학습 설정
+AML_DEFAULT_TRAIN = F                                                   # 빠른학습 설정
+
+# 기초모델 생성
+max_models_AML = 30                                                     # 모형튜닝 과정에서 최대 모형 개수 설정
+max_models_RF  = 10                                                     # 모형튜닝 과정에서 최대 모형 개수 설정
+max_models_XGB = 100                                                    # 모형튜닝 과정에서 최대 모형 개수 설정
+max_models_GBM = 100                                                    # 모형튜닝 과정에서 최대 모형 개수 설정
+max_models_DL  = 30                                                     # 모형튜닝 과정에서 최대 모형 개수 설정
+max_runtime_secs = 0                                                    # 모형튜닝 과정에서  최대학습소요시간 설정
+source(file.path(ML_PL_Path,"210_ML_PL_BL.R"))                          # 1차) 베스트변수 선택, 2차) 기초모델 생성
+
+# 기초모델 백업
+CURNT_DATE = file.path(EXPT_PL_Path,"bak",gsub("-","",Sys.Date()))      # 백업 경로 : /data/EXPT_MDEL/MDEL_PL_FRCST/bak
+system(paste("mkdir",CURNT_DATE))                                       # 백업폴더 생성
+system(paste("cp -r",paste0(EXPT_PL_Path,"/BASE_ML/*"),CURNT_DATE))     # 기초모델 백업
+
+# XGB모델 이동 
+system(paste("mv -b",paste0(EXPT_PL_Path,"/BASE_ML/*XGB*"),CURNT_DATE)) # H2O 3.14.0.2이하 버전에서는 XGB를 BASE_ML에서 제거
+
+# 앙상블모델 생성
+max_models= 30                                                          # 모형튜닝 과정에서 최대모형개수 설정 
+max_runtime_secs = 60*60*10                                             # 모형튜닝 과정에서 최대학습소요시간 설정
+SEARCH_INTERVAL = T                                                     # 태깅간격 탐색 옵션 
+BEST_INTERVAL = 0.35                                                    # 예측확률 50%를 기준점으로 태깅 간격 베스트값 설정
+source(file.path(ML_PL_Path,"220_ML_PL_SM.R"))                          # /data/EXPT_MDEL/MDEL_PL_FRCST/BASE_ML 안에 존재하는 모델 앙상블
+
+# BEST모델 저장
+source(file.path(ML_PL_Path,"310_ML_PL_BST.R"))                         # 기초모델과 앙상블모델을 비교하여 BEST모델 설정 및 저장
+
+# BEST모델 리포트 생성
+source(file.path(ML_PL_Path,"320_ML_PL_RST.R"))                         # BEST모델 리포트 생성
+
+# H2O세션 종료
+h2o.shutdown(prompt=F)                                                  # H2O 세션을 종료 
+gc(reset=T)                                                             # 메모리 초기화
+                                                                        
+```
+
+# 04. 대출예측모델 운영
+```{r}
+# 메모리 초기화 
+rm(list = ls())                                                         # Remove all object
+gc(reset = T)                                                           # Release memory
+
+# Configure 호출 
+scriptPath <- "/data/rpjt/R_script/MDEL_PL_FRCST"                       # Set script path             
+source(file.path(scriptPath, "PL_CONF.R"))                              # Load Configures
+
+# H2O세션 열기
+library(h2o)                                                            # H2O 라이브러리 호출
+h2o.init(nthreads=24)                                                   # H2O 연결(local)
+
+# SparkR 세션 열기
+setwd("~")                                                              # set working directory(avoid the hive metastore_db problem) 
+sparkR.session(master = SPARK_Path)                                     # Spark Standalone Mode
+
+#Sys.sleep for network communication
+Sys.sleep(5)                                                            # 네트워크 충돌방지
+
+# 기간 설정 
+looping_ar <- makeDateArray('201709', 1)                               # 기준년월(M시점, 예측 타겟은 M+1, M_2 시점)
+
+# 권한부여 설정 
+chmod_777 <- TRUE                                                       # 생성 파일에 권한 777부여 여부 설정 
+
+# 계약 템프테이블
+source(file.path(OP_PL_Path,"110_OP_PL_PLC_TT.R"))                      # WRK 템프테이블 생성(1)
+
+# 당사자 템프테이블
+source(file.path(OP_PL_Path,"120_OP_PL_PTY_TT.R"))                      # WRK 템프테이블 생성(2)
+
+# DM 마트 이관
+source(file.path(OP_PL_Path,"130_OP_PL_MD.R"))                          # DM 마트 이관
+
+# 데이터셋 생성 
+source(file.path(OP_PL_Path,"210_OP_PL_DT.R"))                          # 데이터셋 생성 
+
+# 파생변수 생성
+doRound = T                                                             # 연속형 변수 라운드 처리 옵션 
+source(file.path(OP_PL_Path,"220_OP_PL_FE.R"))                          # R data.table을 사용하여 통계 및 비율 파생변수를 생성  
+
+# BEST모델 예측
+source(file.path(OP_PL_Path,"310_OP_PL_ML.R"))                          # BEST모델 예측  
+
+# BEST모델 운영 output 생성 
+source(file.path(OP_PL_Path,"411_OP_PL_FRCST_RST.R"))                   # BEST모델 운영 output 생성 
+
+# 예측값 + 계약정보 output생성 
+source(file.path(OP_PL_Path,"420_OP_PL_FRCST_PERPLC.R"))                # 예측값 + 계약정보 output생성 
+
+# 메모리 초기화
+h2o.removeAll()               
+rm(list=ls())                                                           # Remove all object
+gc(reset=T)                                                             # Release memory
+
+# disconnect h2o
+h2o.shutdown(prompt=FALSE)                                              # H2O 세션을 종료
+
+# disconnect sparkR
+sparkR.session.stop()                                                   # Disconnect SparkR
+```
+
+# 05. 대출예측모델 운영평가
+```{r}
+# 메모리 초기화 
+rm(list = ls())                                                         # Remove all object
+gc(reset = T)                                                           # Release memory
+
+# Configure 호출 
+scriptPath <- "/data/rpjt/R_script/MDEL_PL_FRCST"                       # Set script path             
+source(file.path(scriptPath, "PL_CONF.R"))                              # Load Configures
+
+# 권한부여 설정 
+chmod_777 <- TRUE                                                       # 생성 파일에 권한 777부여 여부 설정 
+
+# 기간 설정 
+looping_ar <- makeDateArray('201706', 1)                               # 기준년월(M시점, 예측 타겟은 M+1, M_2 시점)
+
+# SparkR 세션 열기
+setwd("~")                                                              # set working directory(avoid the hive metastore_db problem) 
+sparkR.session(master = SPARK_Path)                                     # Spark Standalone Mode
+
+# 계약 템프테이블
+source(file.path(DM_PL_Path,"110_DM_PL_PLC_TT.R"))                      # WRK 템프테이블 생성(1)
+
+# 당사자 템프테이블
+source(file.path(DM_PL_Path,"120_DM_PL_PTY_TT.R"))                      # WRK 템프테이블 생성(2)
+
+# DM 마트 이관
+source(file.path(DM_PL_Path,"210_DM_PL_MD.R"))                          # DM 마트 이관
+
+# SparkR 세션 끊기 
+sparkR.session.stop()                                                   # Disconnect SparkR
+
+# sparklyR 세션 열기
+setwd("~")                                                              # set working directory(avoid the hive metastore_db problem) 
+sparklyR.conn("cluster",24)                                             # Cluster Mode
+
+# 데이터셋 생성 
+source(file.path(ML_PL_Path,"110_ML_PL_DT.R"))                          # 계약 및 고객 데이터를 결합하여 분석 데이터셋 생성 
+
+# sparklyR 세션 끊기
+sparklyR.disconn(sc)                                                    # Disconnect sparklyR
+
+# 파생변수 생성
+doRound = T                                                             # 연속형 변수 라운드 처리 옵션 
+source(file.path(OP_PL_Path,"220_OP_PL_FE.R"))                          # R data.table을 사용하여 통계 및 비율 파생변수를 생성  
+
+# H2O세션 열기
+library(h2o)                                                            # H2O 라이브러리 호출
+h2o.init(nthreads=24)                                                   # H2O 연결(local)
+
+# BEST모델 예측
+source(file.path(OP_PL_Path,"310_OP_PL_ML.R"))                          # BEST모델 예측  
+
+# BEST모델 운영 output 생성 
+source(file.path(OP_PL_Path,"412_OP_PL_FRCST_RST_EVAL.R"))              # BEST모델 운영평가 output 생성 
+
+# H2O세션 종료
+h2o.shutdown(prompt=F)                                                  # H2O 세션을 종료 
+gc(reset=T)                                                             # 메모리 초기화
+```
+
+# 06. 메모리 초기화
+```{r}
+rm(list=ls())                                                           # Remove all object
+gc(reset=T)                                                             # Release memory
+```
